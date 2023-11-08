@@ -115,20 +115,20 @@ fn run_listener() -> Result<(), zbus::Error> {
         // println!("Change body: {change:#?}");
         let args = change.args()?;
         for (name, value) in args.changed_properties().iter() {
-            if *name == property_name {
-                match value {
-                    Value::Str(s) => {
-                        if let Ok(p) = PPDPowerProfile::from_str(s) {
-                            println!("New {property_name}: {p}");
-                            set_epp_on_all_cores(&p.to_epp())?
-                        }
-                    }
-                    v => {
-                        println!("ERROR: Unexpected profile value: {v:?}")
+            if *name != property_name {
+                println!("Ignoring property: {name}");
+                continue;
+            }
+            match value {
+                Value::Str(s) => {
+                    if let Ok(p) = PPDPowerProfile::from_str(s) {
+                        println!("New {property_name}: {p}");
+                        set_epp_on_all_cores(&p.to_epp())?
                     }
                 }
-            } else {
-                println!("Ignoring property: {name}")
+                v => {
+                    println!("ERROR: Unexpected profile value: {v:?}")
+                }
             }
         }
     }
