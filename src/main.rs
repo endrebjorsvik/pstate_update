@@ -69,13 +69,14 @@ impl fmt::Display for EnergyPerformancePreference {
 
 fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) -> io::Result<()> {
     let f = core_path.join("energy_performance_preference");
-    println!("Writing EPP '{epp}' to file {f:?}.");
+    log::debug!("Writing EPP '{epp}' to file {f:?}.");
     fs::write(f, epp.to_string())?;
     Ok(())
 }
 
 fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
     let base = path::Path::new("/sys/devices/system/cpu/cpufreq");
+    log::info!("Writing EPP {epp} to kernel under {base:?}.");
     for entry in base.read_dir()? {
         let p = entry.unwrap().path();
         let fname = match p.file_name() {
@@ -109,40 +110,41 @@ fn run_listener() -> Result<(), zbus::Error> {
     let mut changes = proxy.receive_properties_changed()?;
     // let mut changes = proxy.receive_property_changed(property_name);
 
-    println!("Starting to listen fproperty_nameor property changes.");
+    log::info!("Starting to listen fproperty_nameor property changes.");
     while let Some(change) = changes.next() {
         // To print the full message of `change`:
-        // println!("Change body: {change:#?}");
+        // log::info!("Change body: {change:#?}");
         let args = change.args()?;
         for (name, value) in args.changed_properties().iter() {
             if *name != property_name {
-                println!("Ignoring property: {name}");
+                log::info!("Ignoring property: {name}");
                 continue;
             }
             match value {
                 Value::Str(s) => {
                     if let Ok(p) = PPDPowerProfile::from_str(s) {
-                        println!("New {property_name}: {p}");
+                        log::info!("New {property_name}: {p}");
                         set_epp_on_all_cores(&p.to_epp())?
                     }
                 }
                 v => {
-                    println!("ERROR: Unexpected profile value: {v:?}")
+                    log::error!("ERROR: Unexpected profile value: {v:?}")
                 }
             }
         }
     }
-    println!("Finished listening for property changes.");
+    log::info!("Finished listening for property changes.");
 
     Ok(())
 }
 
 fn main() {
-    // TODO: Logging library!
     // TODO: Docstrings on all functions.
     // TODO: Reswpawn if returned Ok. Just means that the service was restarted.
+    let env = env_logger::Env::new().default_filter_or("info");
+    env_logger::init_from_env(env);
     match run_listener() {
-        Ok(()) => println!("Success!"),
-        Err(e) => println!("ERROR: {e}"),
+        Ok(()) => log::info!("Success!"),
+        Err(e) => log::error!("ERROR: {e}"),
     }
 }
