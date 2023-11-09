@@ -35,6 +35,7 @@ impl fmt::Display for PPDPowerProfile {
 }
 
 impl PPDPowerProfile {
+    /// Convert a PowerProfile to a matching EPP.
     fn to_epp(&self) -> EnergyPerformancePreference {
         match self {
             PPDPowerProfile::PowerSaver => EnergyPerformancePreference::Power,
@@ -67,6 +68,7 @@ impl fmt::Display for EnergyPerformancePreference {
     }
 }
 
+/// Write the provided EPP to the CPU core given by the file path.
 fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) -> io::Result<()> {
     let f = core_path.join("energy_performance_preference");
     log::debug!("Writing EPP '{epp}' to file {f:?}.");
@@ -74,6 +76,7 @@ fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) ->
     Ok(())
 }
 
+/// Write the provided EPP to all available CPU cores on the system.
 fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
     let base = path::Path::new("/sys/devices/system/cpu/cpufreq");
     log::info!("Writing EPP {epp} to kernel under {base:?}.");
@@ -94,6 +97,7 @@ fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
     Ok(())
 }
 
+/// Listen for PowerProfiles property changes on DBus and act on relvant changes.
 fn run_listener() -> Result<(), zbus::Error> {
     let bus_name = "net.hadess.PowerProfiles";
     let object_path = "/net/hadess/PowerProfiles";
@@ -139,7 +143,6 @@ fn run_listener() -> Result<(), zbus::Error> {
 }
 
 fn main() {
-    // TODO: Docstrings on all functions.
     // TODO: Reswpawn if returned Ok. Just means that the service was restarted.
     let env = env_logger::Env::new().default_filter_or("info");
     env_logger::init_from_env(env);
