@@ -4,8 +4,6 @@ use std::process;
 use std::str::FromStr;
 use std::{fmt, io};
 
-use zbus::zvariant::Value;
-
 /// Power profile exposed by power-profiles-daemon (PPD)
 enum PPDPowerProfile {
     PowerSaver,
@@ -14,13 +12,13 @@ enum PPDPowerProfile {
 }
 
 impl FromStr for PPDPowerProfile {
-    type Err = ();
+    type Err = String;
     fn from_str(input: &str) -> Result<PPDPowerProfile, Self::Err> {
         match input {
             "power-saver" => Ok(PPDPowerProfile::PowerSaver),
             "balanced" => Ok(PPDPowerProfile::Balanced),
             "performance" => Ok(PPDPowerProfile::Performance),
-            _ => Err(()),
+            _ => Err(format!("Could not parse {input}")),
         }
     }
 }
@@ -71,10 +69,19 @@ impl fmt::Display for EnergyPerformancePreference {
 
 /// EPPController controls the CPU EPP levels
 struct EPPController {
-    bus_name: String,
-    object_path: String,
-    property_name: String,
+    // bus_name: String,
+    // object_path: String,
     core_files: Vec<path::PathBuf>,
+}
+
+#[zbus::dbus_proxy(
+    interface = "net.hadess.PowerProfiles",
+    default_service = "net.hadess.PowerProfiles",
+    default_path = "/net/hadess/PowerProfiles"
+)]
+trait PowerProfilesDaemonManager {
+    #[dbus_proxy(property)]
+    fn active_profile(&self) -> zbus::Result<String>;
 }
 
 impl EPPController {
@@ -102,55 +109,38 @@ impl EPPController {
     /// Listen for PowerProfiles property changes on DBus and act on relvant changes.
     fn run(&self) -> Result<(), zbus::Error> {
         let conn = zbus::blocking::Connection::system()?;
-        let proxy = zbus::blocking::fdo::PropertiesProxy::builder(&conn)
-            .destination(self.bus_name.as_str())?
-            .path(self.object_path.as_str())?
-            .build()?;
-        let mut changes = proxy.receive_properties_changed()?;
+        let proxy = PowerProfilesDaemonManagerProxyBlocking::new(&conn)?;
+        let active = proxy.active_profile()?;
+        // The general strategy is to fail early here, but not fail on later property changes.
+        // If we encounter errors on property changes, they will mainly be logged.
+        self.process_active_profile_changed(&active)?;
 
-        // TODO: Ping that service is available.
-        // TODO: Also make initial Get and write that to EPP?
+        let mut active_profile_changes = proxy.receive_active_profile_changed();
         log::info!(
-            "Starting to listen for property changes on {}, {}.",
-            self.bus_name,
-            self.object_path
+            "Starting to listen for ActiveProfile changes on {}, {}.",
+            proxy.destination(),
+            proxy.path(),
         );
-        for change in &mut changes {
-            self.process_property_change(change)?;
+        for change in &mut active_profile_changes {
+            let val = change.get()?;
+            if let Err(e) = self.process_active_profile_changed(&val) {
+                log::error!("Failed to process ActiveProfile change ({val}): {e}.");
+            }
         }
         log::info!("Finished listening for property changes.");
         Ok(())
     }
 
-    /// Process the provided property change and write EPPs from it.
-    fn process_property_change(
-        &self,
-        change: zbus::blocking::fdo::PropertiesChanged,
-    ) -> Result<(), zbus::Error> {
-        let args = change.args()?;
-        for (name, value) in args.changed_properties().iter() {
-            log::debug!("Checking property {name}");
-            if *name != self.property_name {
-                log::debug!("Ignoring property: {name}");
-                continue;
+    /// Process the provided property change value and write EPPs from it.
+    fn process_active_profile_changed(&self, value: &str) -> Result<(), zbus::Error> {
+        let profile = match PPDPowerProfile::from_str(value) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(zbus::Error::Failure(e));
             }
-            let prop = match value {
-                Value::Str(s) => s,
-                v => {
-                    log::error!("Unexpected property value type: {v:?}");
-                    continue;
-                }
-            };
-            let profile = match PPDPowerProfile::from_str(prop) {
-                Ok(p) => p,
-                Err(e) => {
-                    log::error!("Could not parse property value '{prop}': {e:?}.");
-                    continue;
-                }
-            };
-            log::info!("Property '{name}' changed: {profile}");
-            self.write_epp_to_all_cores(&profile.to_epp())?
-        }
+        };
+        log::info!("ActiveProfile changed: {profile}");
+        self.write_epp_to_all_cores(&profile.to_epp())?;
         Ok(())
     }
 }
@@ -199,14 +189,8 @@ fn main() {
         log::error!("Could not find any valid EPP files. Exiting.");
         process::exit(1);
     }
-    let bus_name = String::from("net.hadess.PowerProfiles");
-    let object_path = String::from("/net/hadess/PowerProfiles");
-    let property_name = String::from("ActiveProfile");
 
     let controller = EPPController {
-        bus_name,
-        object_path,
-        property_name,
         core_files: epp_files,
     };
     loop {
