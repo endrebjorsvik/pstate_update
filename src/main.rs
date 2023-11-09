@@ -114,7 +114,7 @@ impl EPPController {
             self.bus_name,
             self.object_path
         );
-        while let Some(change) = changes.next() {
+        for change in &mut changes {
             self.process_property_change(change)?;
         }
         log::info!("Finished listening for property changes.");
@@ -193,7 +193,7 @@ fn main() {
             process::exit(1);
         }
     };
-    if epp_files.len() == 0 {
+    if epp_files.is_empty() {
         log::error!("Could not find any valid EPP files. Exiting.");
         process::exit(1);
     }
@@ -202,9 +202,9 @@ fn main() {
     let property_name = String::from("ActiveProfile");
 
     let controller = EPPController {
-        bus_name: bus_name,
-        object_path: object_path,
-        property_name: property_name,
+        bus_name,
+        object_path,
+        property_name,
         core_files: epp_files,
     };
     match controller.run() {
