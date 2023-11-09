@@ -5,7 +5,6 @@ After=power-profiles-daemon.service
 
 [Service]
 ExecStart=/usr/local/bin/pstate_update
-Type=
 Restart=always
 RestartSec=30
 
