@@ -77,8 +77,7 @@ fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) ->
 fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
     let base = path::Path::new("/sys/devices/system/cpu/cpufreq");
     for entry in base.read_dir()? {
-        let e = entry.unwrap();
-        let p = e.path();
+        let p = entry.unwrap().path();
         let fname = match p.file_name() {
             Some(f) => match f.to_str() {
                 Some(s) => s,
@@ -87,6 +86,7 @@ fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
             None => continue,
         };
         if fname.starts_with("policy") {
+            // TODO: Different error handling here?
             set_epp_on_core(epp, p.as_path())?
         }
     }
@@ -138,6 +138,8 @@ fn run_listener() -> Result<(), zbus::Error> {
 }
 
 fn main() {
+    // TODO: Logging library!
+    // TODO: Docstrings on all functions.
     match run_listener() {
         Ok(()) => println!("Success!"),
         Err(e) => println!("ERROR: {e}"),
