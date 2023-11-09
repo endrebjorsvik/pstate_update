@@ -1,0 +1,13 @@
+[Unit]
+Description=Update AMD pstate EPP based on power-profiles-daemon active profile.
+Requires=power-profiles-daemon.service
+After=power-profiles-daemon.service
+
+[Service]
+ExecStart=/usr/local/bin/pstate_update
+Type=
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
