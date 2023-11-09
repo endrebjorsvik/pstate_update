@@ -67,13 +67,6 @@ impl fmt::Display for EnergyPerformancePreference {
     }
 }
 
-/// EPPController controls the CPU EPP levels
-struct EPPController {
-    // bus_name: String,
-    // object_path: String,
-    core_files: Vec<path::PathBuf>,
-}
-
 #[zbus::dbus_proxy(
     interface = "net.hadess.PowerProfiles",
     default_service = "net.hadess.PowerProfiles",
@@ -82,6 +75,11 @@ struct EPPController {
 trait PowerProfilesDaemonManager {
     #[dbus_proxy(property)]
     fn active_profile(&self) -> zbus::Result<String>;
+}
+
+/// EPPController controls the CPU EPP levels
+struct EPPController {
+    core_files: Vec<path::PathBuf>,
 }
 
 impl EPPController {
