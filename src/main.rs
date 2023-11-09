@@ -109,6 +109,7 @@ impl EPPController {
         let mut changes = proxy.receive_properties_changed()?;
 
         // TODO: Ping that service is available.
+        // TODO: Also make initial Get and write that to EPP?
         log::info!(
             "Starting to listen for property changes on {}, {}.",
             self.bus_name,
@@ -128,8 +129,9 @@ impl EPPController {
     ) -> Result<(), zbus::Error> {
         let args = change.args()?;
         for (name, value) in args.changed_properties().iter() {
+            log::debug!("Checking property {name}");
             if *name != self.property_name {
-                log::info!("Ignoring property: {name}");
+                log::debug!("Ignoring property: {name}");
                 continue;
             }
             let prop = match value {
@@ -146,7 +148,7 @@ impl EPPController {
                     continue;
                 }
             };
-            log::info!("Changed {name}: {profile}");
+            log::info!("Property '{name}' changed: {profile}");
             self.write_epp_to_all_cores(&profile.to_epp())?
         }
         Ok(())
@@ -174,9 +176,10 @@ fn find_cpu_core_epp_paths(cpufreq_path: &path::Path) -> Result<Vec<path::PathBu
             log::warn!("EPP file does not exist: {epp_file:?}.");
             continue;
         }
-        log::info!("Found valid EPP file: {epp_file:?}.");
+        log::debug!("Found valid EPP file: {epp_file:?}.");
         paths.push(epp_file);
     }
+    log::info!("Found {} valid EPP files.", paths.len());
     Ok(paths)
 }
 
