@@ -69,7 +69,7 @@ impl fmt::Display for EnergyPerformancePreference {
 
 fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) -> io::Result<()> {
     let f = core_path.join("energy_performance_preference");
-    println!("Writing {epp} to {f:?}.");
+    println!("Writing EPP '{epp}' to file {f:?}.");
     fs::write(f, epp.to_string())?;
     Ok(())
 }
@@ -140,6 +140,7 @@ fn run_listener() -> Result<(), zbus::Error> {
 fn main() {
     // TODO: Logging library!
     // TODO: Docstrings on all functions.
+    // TODO: Reswpawn if returned Ok. Just means that the service was restarted.
     match run_listener() {
         Ok(()) => println!("Success!"),
         Err(e) => println!("ERROR: {e}"),
