@@ -1,5 +1,6 @@
 use std::fs;
 use std::path;
+use std::process;
 use std::str::FromStr;
 use std::{fmt, io};
 
@@ -68,86 +69,149 @@ impl fmt::Display for EnergyPerformancePreference {
     }
 }
 
-/// Write the provided EPP to the CPU core given by the file path.
-fn set_epp_on_core(epp: &EnergyPerformancePreference, core_path: &path::Path) -> io::Result<()> {
-    let f = core_path.join("energy_performance_preference");
-    log::debug!("Writing EPP '{epp}' to file {f:?}.");
-    fs::write(f, epp.to_string())?;
-    Ok(())
+/// EPPController controls the CPU EPP levels
+struct EPPController {
+    bus_name: String,
+    object_path: String,
+    property_name: String,
+    core_files: Vec<path::PathBuf>,
 }
 
-/// Write the provided EPP to all available CPU cores on the system.
-fn set_epp_on_all_cores(epp: &EnergyPerformancePreference) -> io::Result<()> {
-    let base = path::Path::new("/sys/devices/system/cpu/cpufreq");
-    log::info!("Writing EPP {epp} to kernel under {base:?}.");
-    for entry in base.read_dir()? {
-        let p = entry.unwrap().path();
-        let fname = match p.file_name() {
+impl EPPController {
+    /// Write the provided EPP to the CPU core given by the file path.
+    fn write_epp_to_core(
+        epp: &EnergyPerformancePreference,
+        epp_file: &path::Path,
+    ) -> io::Result<()> {
+        log::debug!("Writing EPP '{epp}' to file {epp_file:?}.");
+        fs::write(epp_file, epp.to_string())?;
+        Ok(())
+    }
+
+    /// Write the provided EPP to all discovered CPU cores.
+    fn write_epp_to_all_cores(&self, epp: &EnergyPerformancePreference) -> io::Result<()> {
+        log::info!("Writing EPP {epp} to all EPP files.");
+        for f in self.core_files.iter() {
+            if let Err(e) = EPPController::write_epp_to_core(epp, f) {
+                log::error!("Failed to write EPP to core ({f:?}): {e}.")
+            }
+        }
+        Ok(())
+    }
+
+    /// Listen for PowerProfiles property changes on DBus and act on relvant changes.
+    fn run(&self) -> Result<(), zbus::Error> {
+        let conn = zbus::blocking::Connection::system()?;
+        let proxy = zbus::blocking::fdo::PropertiesProxy::builder(&conn)
+            .destination(self.bus_name.as_str())?
+            .path(self.object_path.as_str())?
+            .build()?;
+        let mut changes = proxy.receive_properties_changed()?;
+
+        // TODO: Ping that service is available.
+        log::info!(
+            "Starting to listen for property changes on {}, {}.",
+            self.bus_name,
+            self.object_path
+        );
+        while let Some(change) = changes.next() {
+            self.process_property_change(change)?;
+        }
+        log::info!("Finished listening for property changes.");
+        Ok(())
+    }
+
+    /// Process the provided property change and write EPPs from it.
+    fn process_property_change(
+        &self,
+        change: zbus::blocking::fdo::PropertiesChanged,
+    ) -> Result<(), zbus::Error> {
+        let args = change.args()?;
+        for (name, value) in args.changed_properties().iter() {
+            if *name != self.property_name {
+                log::info!("Ignoring property: {name}");
+                continue;
+            }
+            let prop = match value {
+                Value::Str(s) => s,
+                v => {
+                    log::error!("Unexpected property value type: {v:?}");
+                    continue;
+                }
+            };
+            let profile = match PPDPowerProfile::from_str(prop) {
+                Ok(p) => p,
+                Err(e) => {
+                    log::error!("Could not parse property value '{prop}': {e:?}.");
+                    continue;
+                }
+            };
+            log::info!("Changed {name}: {profile}");
+            self.write_epp_to_all_cores(&profile.to_epp())?
+        }
+        Ok(())
+    }
+}
+
+/// Traverse the given cpufreq folder and collect valid EPP files for each CPU core
+fn find_cpu_core_epp_paths(cpufreq_path: &path::Path) -> Result<Vec<path::PathBuf>, io::Error> {
+    let mut paths = Vec::new();
+    log::info!("Looking for EPP files for individual CPU cores in {cpufreq_path:?}.");
+    for entry in cpufreq_path.read_dir()? {
+        let p = entry.expect("any path from read_dir should be Ok").path();
+        let dirname = match p.file_name() {
             Some(f) => match f.to_str() {
                 Some(s) => s,
                 None => continue,
             },
             None => continue,
         };
-        if fname.starts_with("policy") {
-            // TODO: Different error handling here?
-            set_epp_on_core(epp, p.as_path())?
+        if !dirname.starts_with("policy") {
+            continue;
         }
-    }
-    Ok(())
-}
-
-/// Listen for PowerProfiles property changes on DBus and act on relvant changes.
-fn run_listener() -> Result<(), zbus::Error> {
-    let bus_name = "net.hadess.PowerProfiles";
-    let object_path = "/net/hadess/PowerProfiles";
-    let property_name = "ActiveProfile";
-    // -> 'balanced'
-    // Property interface: org.freedesktop.DBus.Properties
-    // -> Method: (org.freedesktop.DBus.Properties.)PropertiesChanged
-
-    let conn = zbus::blocking::Connection::system()?;
-    let proxy = zbus::blocking::fdo::PropertiesProxy::builder(&conn)
-        .destination(bus_name)?
-        .path(object_path)?
-        .build()?;
-    let mut changes = proxy.receive_properties_changed()?;
-    // let mut changes = proxy.receive_property_changed(property_name);
-
-    log::info!("Starting to listen fproperty_nameor property changes.");
-    while let Some(change) = changes.next() {
-        // To print the full message of `change`:
-        // log::info!("Change body: {change:#?}");
-        let args = change.args()?;
-        for (name, value) in args.changed_properties().iter() {
-            if *name != property_name {
-                log::info!("Ignoring property: {name}");
-                continue;
-            }
-            match value {
-                Value::Str(s) => {
-                    if let Ok(p) = PPDPowerProfile::from_str(s) {
-                        log::info!("New {property_name}: {p}");
-                        set_epp_on_all_cores(&p.to_epp())?
-                    }
-                }
-                v => {
-                    log::error!("ERROR: Unexpected profile value: {v:?}")
-                }
-            }
+        let epp_file = p.join("energy_performance_preference");
+        if !epp_file.exists() {
+            log::warn!("EPP file does not exist: {epp_file:?}.");
+            continue;
         }
+        log::info!("Found valid EPP file: {epp_file:?}.");
+        paths.push(epp_file);
     }
-    log::info!("Finished listening for property changes.");
-
-    Ok(())
+    Ok(paths)
 }
 
 fn main() {
     // TODO: Reswpawn if returned Ok. Just means that the service was restarted.
     let env = env_logger::Env::new().default_filter_or("info");
     env_logger::init_from_env(env);
-    match run_listener() {
+
+    let cpufreq_path = path::Path::new("/sys/devices/system/cpu/cpufreq");
+    let epp_files = match find_cpu_core_epp_paths(cpufreq_path) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("{e}");
+            process::exit(1);
+        }
+    };
+    if epp_files.len() == 0 {
+        log::error!("Could not find any valid EPP files. Exiting.");
+        process::exit(1);
+    }
+    let bus_name = String::from("net.hadess.PowerProfiles");
+    let object_path = String::from("/net/hadess/PowerProfiles");
+    let property_name = String::from("ActiveProfile");
+
+    let controller = EPPController {
+        bus_name: bus_name,
+        object_path: object_path,
+        property_name: property_name,
+        core_files: epp_files,
+    };
+    match controller.run() {
         Ok(()) => log::info!("Success!"),
-        Err(e) => log::error!("ERROR: {e}"),
+        Err(e) => {
+            log::error!("Encountered error. Exiting. {e}");
+            process::exit(1);
+        }
     }
 }
