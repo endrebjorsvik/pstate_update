@@ -181,7 +181,6 @@ fn find_cpu_core_epp_paths(cpufreq_path: &path::Path) -> Result<Vec<path::PathBu
 }
 
 fn main() {
-    // TODO: Reswpawn if returned Ok. Just means that the service was restarted.
     let env = env_logger::Env::new().default_filter_or("info");
     env_logger::init_from_env(env);
 
@@ -207,11 +206,15 @@ fn main() {
         property_name,
         core_files: epp_files,
     };
-    match controller.run() {
-        Ok(()) => log::info!("Success!"),
-        Err(e) => {
-            log::error!("Encountered error. Exiting. {e}");
-            process::exit(1);
+    loop {
+        match controller.run() {
+            Ok(()) => {
+                log::info!("Controller finished without error. Respawning.")
+            }
+            Err(e) => {
+                log::error!("Encountered error. Exiting. {e}");
+                process::exit(1);
+            }
         }
     }
 }
