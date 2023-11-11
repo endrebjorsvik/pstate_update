@@ -21,3 +21,18 @@ this small daemon which does the following:
 It also comes with a conveniet systemd unit file to launch the service in the background.
 
 [ppd]: https://gitlab.freedesktop.org/hadess/power-profiles-daemon
+
+## Getting started
+
+Build the project using `cargo`.
+
+```bash
+cargo build --release
+```
+
+Configure the mapping from Power Profile to EPP and scaling governor in a `config.toml`
+file. The file should preferrably be placed in `/etc/pstate_update/config.toml`, but
+a local `config.toml` file is also accepted.
+
+For convenience, there is also a small deployment script which copies files to various
+places.
