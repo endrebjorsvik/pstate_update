@@ -1,0 +1,9 @@
+[epp]
+power_saver = "power"
+balanced = "balance_power"
+performance = "performance"
+
+[scaling_governor]
+power_saver = "powersave"
+balanced = "powersave"
+performance = "performance"
