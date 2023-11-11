@@ -35,4 +35,16 @@ file. The file should preferrably be placed in `/etc/pstate_update/config.toml`,
 a local `config.toml` file is also accepted.
 
 For convenience, there is also a small deployment script which copies files to various
-places.
+places (`deploy.sh`). If you use the deployment script, you should only need the following
+two commands.
+
+```bash
+./deploy.sh
+sudo systemctl start pstate_update.service
+```
+
+Make sure to also enable the systemd service if you want it to start automatically.
+
+```bash
+sudo systemctl enable pstate_update.service
+```
