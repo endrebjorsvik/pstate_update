@@ -197,8 +197,8 @@ impl EPPController {
             }
         };
         log::info!("ActiveProfile changed: {profile}");
-        self.write_epp_to_all_cores(self.desired_epp(&profile))?;
         self.write_governor_to_all_cores(self.desired_governor(&profile))?;
+        self.write_epp_to_all_cores(self.desired_epp(&profile))?;
         Ok(())
     }
 
