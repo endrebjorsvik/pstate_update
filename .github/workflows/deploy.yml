@@ -53,7 +53,12 @@ jobs:
           binary_name="update_pstate"
           dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
           mkdir "$dirname"
-          mv "target/release/$binary_name" "$dirname"
+          pwd
+          ls -l .
+          ls -l target
+          ls -l "target/${{ matrix.target }}"
+          ls -l "target/${{ matrix.target }}/release"
+          mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
           cp "${binary_name}.service" "$dirname"
           cp "config.toml" "$dirname"
           tar -czf "${dirname}.tar.gz" "$dirname"
