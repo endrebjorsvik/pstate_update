@@ -7,6 +7,10 @@ on:
       # Regex for a version number such as v0.2.1
       - "v[0-9]+.[0-9]+.[0-9]+"
 
+# Write permission are required to upload build artifact as release.
+permissions:
+  contents: write
+
 jobs:
   build-and-upload:
     name: Build and Upload
