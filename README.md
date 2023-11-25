@@ -24,7 +24,9 @@ It also comes with a conveniet systemd unit file to launch the service in the ba
 
 ## Getting started
 
-Build the project using `cargo`.
+There are pre-built binaries available for download in the
+[Release section](https://github.com/endrebjorsvik/pstate_update/releases).
+Otherwise, the project is built using `cargo`. Nothing special there.
 
 ```bash
 cargo build --release
