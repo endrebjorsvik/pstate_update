@@ -54,8 +54,8 @@ jobs:
         run: |
           dirname="${{ env.BINARY_NAME }}-${{ matrix.target }}"
           mkdir "$dirname"
-          mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
-          cp "${binary_name}.service" "$dirname"
+          mv "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}" "$dirname"
+          cp "${{ env.BINARY_NAME }}.service" "$dirname"
           cp "config.toml" "$dirname"
           tar -czf "${dirname}.tar.gz" "$dirname"
           echo "ASSET=${dirname}.tar.gz" >> "$GITHUB_OUTPUT"
@@ -92,15 +92,18 @@ jobs:
         with:
           name: binary-${{ matrix.target }}
 
-      - name: Get the release version from the tag
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
       - name: Rename artifacts
+        id: file-renamer
         shell: bash
-        run: mv 
+        run: |
+          src="${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz"
+          dest="${{ env.BINARY_NAME }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
+          mv "$src" "$dest"
+          echo "FILENAME=$dest" >> "$GITHUB_ENV"
 
       - name: Upload the binaries
         uses: softprops/action-gh-release@v1
+        env:
+          FILENAME: ${{ steps.file-renamer.outputs.FILENAME }}
         with:
-          files: ${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz
+          files: ${{ env.FILENAME }}
