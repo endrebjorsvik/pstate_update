@@ -1,5 +1,5 @@
 # Just setting the name of our action
-name: Deploy
+name: CI workflow
 
 on: push
 
