@@ -3,6 +3,9 @@ name: Deploy
 
 on: push
 
+env:
+  BINARY_NAME: pstate_update
+
 jobs:
   test-and-build:
     name: Test and build project
@@ -49,8 +52,7 @@ jobs:
         id: archive-builder
         shell: bash
         run: |
-          binary_name="pstate_update"
-          dirname="$binary_name-${{ matrix.target }}"
+          dirname="${{ env.BINARY_NAME }}-${{ matrix.target }}"
           mkdir "$dirname"
           mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
           cp "${binary_name}.service" "$dirname"
@@ -101,4 +103,4 @@ jobs:
       - name: Upload the binaries
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ env.ASSET }}
+          files: ${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz
