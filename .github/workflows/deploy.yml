@@ -31,19 +31,22 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          components: rustfmt, clippy
-          target: ${{ matrix.target }}
+        # The default profile contains both rustfmt and clippy.
+        run: |
+          rustup toolchain install stable --profile default --no-self-update --target ${{ matrix.target }}
 
       - name: Test code
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --verbose
-      
+
+      - name: Lint code
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -D warnings
+
       - name: Get the release version from the tag
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
@@ -69,5 +72,4 @@ jobs:
       - name: Upload the binaries
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            ${{ env.ASSET }}
+          files: ${{ env.ASSET }}
