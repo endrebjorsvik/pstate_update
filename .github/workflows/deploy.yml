@@ -100,11 +100,12 @@ jobs:
           src="${{ env.BINARY_NAME }}-${{ matrix.target }}.tar.gz"
           dest="${{ env.BINARY_NAME }}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
           mv "$src" "$dest"
-          echo "FILENAME=$dest" >> "$GITHUB_ENV"
+          echo "FILENAME=$dest" >> "$GITHUB_OUTPUT"
 
       - name: Upload the binaries
         uses: softprops/action-gh-release@v1
         env:
           FILENAME: ${{ steps.file-renamer.outputs.FILENAME }}
         with:
+          fail_on_unmatched_files: true
           files: ${{ env.FILENAME }}
