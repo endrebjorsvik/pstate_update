@@ -69,6 +69,7 @@ jobs:
   release-binaries:
     name: Upload binaries to GitHub Releases page
     runs-on: ubuntu-lates
+    needs: test-and-build
     # Write permission are required to upload build artifact as release.
     permissions:
       contents: write
