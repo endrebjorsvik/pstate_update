@@ -67,10 +67,11 @@ jobs:
         with:
           name: binary-${{ matrix.target }}
           path: ${{ env.ASSET }}
+          if-no-files-found: error
 
   release-binaries:
     name: Upload binaries to GitHub Releases page
-    runs-on: ubuntu-lates
+    runs-on: ubuntu-latest
     needs: test-and-build
     # Write permission are required to upload build artifact as release.
     permissions:
