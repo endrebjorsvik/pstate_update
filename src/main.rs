@@ -34,7 +34,7 @@ impl fmt::Display for PPDPowerProfile {
 }
 
 #[derive(serde::Deserialize)]
-/// Energy Performance Preference (EPP) exposed by the AMD PState driver
+/// Energy Performance Preference (EPP) exposed by the AMD P-State driver
 enum EnergyPerformancePreference {
     #[allow(dead_code)]
     #[serde(rename(deserialize = "default"))]
@@ -76,7 +76,7 @@ impl FromStr for EnergyPerformancePreference {
     }
 }
 
-/// Scaling governor exposed by the AMD Pstate driver
+/// Scaling governor exposed by the AMD P-State driver
 #[derive(serde::Deserialize)]
 enum ScalingGovernor {
     #[serde(rename(deserialize = "powersave"))]
@@ -115,7 +115,7 @@ trait PowerProfilesDaemonManager {
     fn active_profile(&self) -> zbus::Result<String>;
 }
 
-/// EPPController controls the CPU EPP levels
+/// `EPPController` controls the CPU EPP levels
 struct EPPController {
     epp_core_files: Vec<path::PathBuf>,
     epp_config: EPPConfig,
@@ -135,14 +135,13 @@ impl EPPController {
     }
 
     /// Write the provided EPP to all discovered CPU cores.
-    fn write_epp_to_all_cores(&self, epp: &EnergyPerformancePreference) -> io::Result<()> {
+    fn write_epp_to_all_cores(&self, epp: &EnergyPerformancePreference) {
         log::info!("Writing EPP {epp} to all EPP files.");
-        for f in self.epp_core_files.iter() {
+        for f in &self.epp_core_files {
             if let Err(e) = EPPController::write_epp_to_core(epp, f) {
-                log::error!("Failed to write EPP to core ({f:?}): {e}.")
+                log::error!("Failed to write EPP to core ({f:?}): {e}.");
             }
         }
-        Ok(())
     }
 
     /// Write the provided scaling governor to the CPU core given by the file path.
@@ -153,17 +152,16 @@ impl EPPController {
     }
 
     /// Write the provided EPP to all discovered CPU cores.
-    fn write_governor_to_all_cores(&self, gov: &ScalingGovernor) -> io::Result<()> {
+    fn write_governor_to_all_cores(&self, gov: &ScalingGovernor) {
         log::info!("Writing governor {gov} to all governor files.");
-        for f in self.governor_core_files.iter() {
+        for f in &self.governor_core_files {
             if let Err(e) = EPPController::write_governor_to_core(gov, f) {
-                log::error!("Failed to write governor to core ({f:?}): {e}.")
+                log::error!("Failed to write governor to core ({f:?}): {e}.");
             }
         }
-        Ok(())
     }
 
-    /// Listen for PowerProfiles property changes on DBus and act on relvant changes.
+    /// Listen for `PowerProfiles` property changes on D-Bus and act on relvant changes.
     fn run(&self) -> Result<(), zbus::Error> {
         let conn = zbus::blocking::Connection::system()?;
         let proxy = PowerProfilesDaemonManagerProxyBlocking::new(&conn)?;
@@ -197,8 +195,8 @@ impl EPPController {
             }
         };
         log::info!("ActiveProfile changed: {profile}");
-        self.write_governor_to_all_cores(self.desired_governor(&profile))?;
-        self.write_epp_to_all_cores(self.desired_epp(&profile))?;
+        self.write_governor_to_all_cores(self.desired_governor(&profile));
+        self.write_epp_to_all_cores(self.desired_epp(&profile));
         Ok(())
     }
 
@@ -221,7 +219,7 @@ impl EPPController {
     }
 }
 
-/// Traverse the given cpufreq folder and collect valid EPP files for each CPU core
+/// Traverse the given `cpufreq` folder and collect valid EPP files for each CPU core
 fn find_cpu_core_epp_paths(cpufreq_path: &path::Path) -> Result<Vec<path::PathBuf>, io::Error> {
     let mut paths = Vec::new();
     log::info!("Looking for EPP files for individual CPU cores in {cpufreq_path:?}.");
@@ -249,9 +247,7 @@ fn find_cpu_core_epp_paths(cpufreq_path: &path::Path) -> Result<Vec<path::PathBu
     Ok(paths)
 }
 
-fn generate_cpu_core_gorvernor_paths(
-    epp_paths: &[path::PathBuf],
-) -> Result<Vec<path::PathBuf>, io::Error> {
+fn generate_cpu_core_gorvernor_paths(epp_paths: &[path::PathBuf]) -> Vec<path::PathBuf> {
     let mut paths = Vec::new();
     for epp in epp_paths {
         let p = epp.with_file_name("scaling_governor");
@@ -262,7 +258,7 @@ fn generate_cpu_core_gorvernor_paths(
         paths.push(p);
     }
     log::info!("Found {} valid governor files.", paths.len());
-    Ok(paths)
+    paths
 }
 
 #[derive(serde::Deserialize)]
@@ -318,13 +314,7 @@ fn main() {
         log::error!("Could not find any valid EPP files. Exiting.");
         process::exit(1);
     }
-    let governor_files = match generate_cpu_core_gorvernor_paths(&epp_files) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("{e}");
-            process::exit(1);
-        }
-    };
+    let governor_files = generate_cpu_core_gorvernor_paths(&epp_files);
     if epp_files.is_empty() {
         log::error!("Could not find any valid governor files. Exiting.");
         process::exit(1);
@@ -346,7 +336,7 @@ fn main() {
     loop {
         match controller.run() {
             Ok(()) => {
-                log::info!("Controller finished without error. Respawning.")
+                log::info!("Controller finished without error. Respawning.");
             }
             Err(e) => {
                 log::error!("Encountered error. Exiting. {e}");
