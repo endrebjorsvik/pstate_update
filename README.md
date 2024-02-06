@@ -24,7 +24,11 @@ It also comes with a conveniet systemd unit file to launch the service in the ba
 
 ## Getting started
 
-Build the project using `cargo`.
+There are pre-built binaries available for download in the
+[Releases section][releases]. Otherwise, the project is built using
+`cargo`. Nothing special there.
+
+[releases]: https://github.com/endrebjorsvik/pstate_update/releases
 
 ```bash
 cargo build --release
@@ -32,7 +36,11 @@ cargo build --release
 
 Configure the mapping from Power Profile to EPP and scaling governor in a `config.toml`
 file. The file should preferrably be placed in `/etc/pstate_update/config.toml`, but
-a local `config.toml` file is also accepted.
+a local `config.toml` file is also accepted. This repo contains a
+[sample `config.toml`][sampletoml] with a reasonable configuration for low power
+consumption.
+
+[sampletoml]: https://github.com/endrebjorsvik/pstate_update/blob/master/config.toml
 
 For convenience, there is also a small deployment script which copies files to various
 places (`deploy.sh`). If you use the deployment script, you should only need the following
