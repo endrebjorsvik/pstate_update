@@ -1,3 +1,9 @@
+UPDATE 2024-02-28: [power-profiles-daemon v0.20][ppd_v020] was released on 2024-02-15.
+That version added support for multiple drivers, such that both `platform_profile` and
+`amd_pstate` may be controlled simultaneously. That version is already deployed for
+Fedora 39, and other distros will eventually follow. If you use PPD v0.20++, you should
+NOT use this `pstate_update` daemon, as they might easily conflict each other.
+
 # pstate_update
 
 [power-profiles-daemon][ppd] is a nice and simple daemon which controls the power states
@@ -21,6 +27,7 @@ this small daemon which does the following:
 It also comes with a conveniet systemd unit file to launch the service in the background.
 
 [ppd]: https://gitlab.freedesktop.org/hadess/power-profiles-daemon
+[ppd_v020]: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/releases/0.20
 
 ## Getting started
 
